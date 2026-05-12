@@ -542,6 +542,24 @@
     </div>
   </div>
 
+  <!-- =================== ABORT CONFIRM MODAL =================== -->
+  <div id="abort-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="abort-confirm-title" hidden
+       style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(10,14,20,0.88);backdrop-filter:blur(4px);">
+    <div style="width:380px;background:var(--bg-panel);border:1px solid var(--border);padding:28px;position:relative;">
+      <div style="position:absolute;top:-1px;left:-1px;width:16px;height:16px;border-top:2px solid var(--hostile);border-left:2px solid var(--hostile);"></div>
+      <div style="position:absolute;bottom:-1px;right:-1px;width:16px;height:16px;border-bottom:2px solid var(--hostile);border-right:2px solid var(--hostile);"></div>
+      <div id="abort-confirm-title" style="font-family:var(--font-display);font-size:16px;font-weight:700;letter-spacing:0.18em;color:var(--text-alert);text-transform:uppercase;margin-bottom:8px;">Abort Mission?</div>
+      <div style="font-family:var(--font-data);font-size:12px;color:var(--text-secondary);letter-spacing:0.1em;margin-bottom:24px;">
+        // SCENARIO WILL BE TERMINATED //<br>
+        // PROGRESS WILL NOT BE SAVED //
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button id="btn-abort-cancel"  type="button" class="btn-tactical">Cancel</button>
+        <button id="btn-abort-confirm" type="button" class="btn-tactical btn-tactical--danger">Confirm Abort</button>
+      </div>
+    </div>
+  </div>
+
   <!-- =================== SCRIPTS =================== -->
 
   <!-- Utils -->
@@ -648,8 +666,29 @@
 
       if (btnAbort) {
         btnAbort.addEventListener('click', () => {
+          if (Engine && typeof Engine.pause === 'function') Engine.pause();
+          setPaused(true);
+          const confirmModal = $('abort-confirm-modal');
+          if (confirmModal) confirmModal.hidden = false;
+        });
+      }
+
+      const btnAbortConfirm = $('btn-abort-confirm');
+      const btnAbortCancel  = $('btn-abort-cancel');
+
+      if (btnAbortConfirm) {
+        btnAbortConfirm.addEventListener('click', () => {
           if (Engine && typeof Engine.stop === 'function') Engine.stop();
           window.location.href = 'index.html';
+        });
+      }
+
+      if (btnAbortCancel) {
+        btnAbortCancel.addEventListener('click', () => {
+          const confirmModal = $('abort-confirm-modal');
+          if (confirmModal) confirmModal.hidden = true;
+          if (Engine && typeof Engine.resume === 'function') Engine.resume();
+          setPaused(false);
         });
       }
 
@@ -691,14 +730,14 @@
       // ----- 5. State subscription -----
       if (Events && typeof Events.on === 'function') {
 
+        // Timer — updated every engine tick (State.time is set directly, not via State.update)
+        Events.on('engine:tick', ({ simTime }) => {
+          const t = $('sim-timer');
+          if (t) t.textContent = formatHMS(simTime);
+        });
+
         Events.on('state:changed', (snapshot) => {
           if (!snapshot) return;
-
-          // Timer
-          if (typeof snapshot.elapsedSeconds === 'number') {
-            const t = $('sim-timer');
-            if (t) t.textContent = formatHMS(snapshot.elapsedSeconds);
-          }
 
           // Counts
           if (typeof snapshot.unitCount === 'number') {
