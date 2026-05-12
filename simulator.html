@@ -585,15 +585,14 @@
       'use strict';
 
       // ----- 1. Parse scenario param -----
-      const params = new URLSearchParams(window.location.search);
+      const params     = new URLSearchParams(window.location.search);
       const scenarioId = (params.get('scenario') || 'alpha').toLowerCase();
-      const scenarioName = scenarioId.toUpperCase();
-      const scnNameEl = document.getElementById('scenario-name');
-      if (scnNameEl) scnNameEl.textContent = scenarioName;
-
-      // ----- 2. Helpers -----
       const $ = (id) => document.getElementById(id);
 
+      const scnNameEl = $('scenario-name');
+      if (scnNameEl) scnNameEl.textContent = scenarioId.toUpperCase();
+
+      // ----- 2. Helpers -----
       function formatHMS(seconds) {
         seconds = Math.max(0, Math.floor(seconds || 0));
         const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
@@ -602,42 +601,49 @@
         return `${h}:${m}:${s}`;
       }
 
-      function safeCall(fn) {
-        try { return typeof fn === 'function' ? fn() : null; }
-        catch (err) { console.warn('[init] safeCall failed:', err); return null; }
+      // ----- 3. Resolve modules with CORRECT window names -----
+      const Events   = window.EventBus        || null;   // events.js   → window.EventBus
+      const Engine   = window.Engine          || null;   // engine.js   → window.Engine
+      const Scenarios= window.ScenarioManager || null;   // scenarios.js→ window.ScenarioManager
+      const Units    = window.UnitsManager    || null;   // units.js    → window.UnitsManager
+      const Comms    = window.CommsManager    || null;   // comms.js    → window.CommsManager
+      const Threat   = window.ThreatManager   || null;   // threat.js   → window.ThreatManager
+      const Radar    = window.RadarDisplay    || null;   // radar.js    → window.RadarDisplay
+      const MapMod   = window.TacticalMap     || null;   // map.js      → window.TacticalMap
+
+      // ----- 4. Size canvases to square before init -----
+      const radarCanvas = $('radar-canvas');
+      if (radarCanvas) {
+        const radarWrap = radarCanvas.closest('.sim-center__radar') || radarCanvas.parentElement;
+        const side = Math.min(radarWrap.clientWidth, radarWrap.clientHeight) - 24;
+        radarCanvas.width  = side;
+        radarCanvas.height = side;
       }
 
-      // ----- 3. Init modules (guarded — JS files may not exist yet in MVP) -----
-      const Events  = window.Events  || null;
-      const State   = window.State   || null;
-      const Engine  = window.Engine  || null;
-      const Scenarios = window.Scenarios || null;
-      const Units   = window.Units   || null;
-      const Comms   = window.Comms   || null;
-      const Threat  = window.Threat  || null;
-      const Radar   = window.Radar   || null;
-      const MapMod  = window.MapMod  || window.MapModule || null;
+      const mapCanvas = $('map-canvas');
+      if (mapCanvas) {
+        const mapWrap = mapCanvas.parentElement;
+        mapCanvas.width  = mapWrap.clientWidth;
+        mapCanvas.height = mapWrap.clientHeight;
+      }
 
-      // Init each module if it has an init function
-      [State, Engine, Units, Comms, Threat, Radar, MapMod].forEach((m) => {
-        if (m && typeof m.init === 'function') safeCall(() => m.init());
-      });
+      // ----- 5. Init canvas modules with their DOM elements -----
+      if (Radar  && typeof Radar.init  === 'function' && radarCanvas) Radar.init(radarCanvas);
+      if (MapMod && typeof MapMod.init === 'function' && mapCanvas)   MapMod.init(mapCanvas);
 
-      // Load scenario
+      // ----- 6. Load scenario then start engine -----
       if (Scenarios && typeof Scenarios.load === 'function') {
-        safeCall(() => Scenarios.load(scenarioId));
+        Scenarios.load(scenarioId);
       }
-
-      // Start engine
       if (Engine && typeof Engine.start === 'function') {
-        safeCall(() => Engine.start());
+        Engine.start();
       }
 
-      // ----- 4. Wire up UI controls -----
-      const btnPause     = $('btn-pause');
-      const btnResume    = $('btn-resume');
-      const btnAbort     = $('btn-abort');
-      const statusEl     = $('scenario-status');
+      // ----- 7. Wire up UI controls -----
+      const btnPause        = $('btn-pause');
+      const btnResume       = $('btn-resume');
+      const btnAbort        = $('btn-abort');
+      const statusEl        = $('scenario-status');
       const footerTimescale = $('footer-timescale');
 
       function setPaused(paused) {
@@ -652,136 +658,123 @@
 
       if (btnPause) {
         btnPause.addEventListener('click', () => {
-          if (Engine && typeof Engine.pause === 'function') Engine.pause();
+          if (Engine) Engine.pause();
           setPaused(true);
         });
       }
-
       if (btnResume) {
         btnResume.addEventListener('click', () => {
-          if (Engine && typeof Engine.resume === 'function') Engine.resume();
+          if (Engine) Engine.resume();
           setPaused(false);
         });
       }
 
+      // Abort — pause first, show confirm modal
       if (btnAbort) {
         btnAbort.addEventListener('click', () => {
-          if (Engine && typeof Engine.pause === 'function') Engine.pause();
+          if (Engine) Engine.pause();
           setPaused(true);
-          const confirmModal = $('abort-confirm-modal');
-          if (confirmModal) confirmModal.hidden = false;
+          const modal = $('abort-confirm-modal');
+          if (modal) modal.hidden = false;
         });
       }
-
       const btnAbortConfirm = $('btn-abort-confirm');
       const btnAbortCancel  = $('btn-abort-cancel');
-
       if (btnAbortConfirm) {
         btnAbortConfirm.addEventListener('click', () => {
-          if (Engine && typeof Engine.stop === 'function') Engine.stop();
+          if (Engine) Engine.stop();
           window.location.href = 'index.html';
         });
       }
-
       if (btnAbortCancel) {
         btnAbortCancel.addEventListener('click', () => {
-          const confirmModal = $('abort-confirm-modal');
-          if (confirmModal) confirmModal.hidden = true;
-          if (Engine && typeof Engine.resume === 'function') Engine.resume();
+          const modal = $('abort-confirm-modal');
+          if (modal) modal.hidden = true;
+          if (Engine) Engine.resume();
           setPaused(false);
         });
       }
 
-      // Time scale buttons
+      // Time scale
       document.querySelectorAll('.timescale-group button[data-timescale]').forEach((btn) => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.timescale-group button').forEach(b => b.classList.remove('is-active'));
           btn.classList.add('is-active');
-          const factor = parseInt(btn.getAttribute('data-timescale'), 10) || 1;
-          if (Engine && typeof Engine.setTimeScale === 'function') Engine.setTimeScale(factor);
+          const factor = parseInt(btn.dataset.timescale, 10) || 1;
+          if (Engine) Engine.setTimeScale(factor);
           if (footerTimescale) footerTimescale.textContent = factor + 'x';
         });
       });
 
-      // Layer toggle buttons
+      // Map layer toggles
       document.querySelectorAll('.map__layer-btn[data-layer]').forEach((btn) => {
         btn.addEventListener('click', () => {
           btn.classList.toggle('is-active');
-          const layer = btn.getAttribute('data-layer');
+          const layer  = btn.dataset.layer;
           const active = btn.classList.contains('is-active');
-          if (MapMod && typeof MapMod.toggleLayer === 'function') {
-            MapMod.toggleLayer(layer, active);
-          }
+          if (MapMod && typeof MapMod.setLayer === 'function') MapMod.setLayer(layer, active);
         });
       });
 
-      // Radar range
-      const scaleLabel = $('map-scale-label');
+      // Radar range selector
       document.querySelectorAll('.radar__range-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.radar__range-btn').forEach(b => b.classList.remove('is-active'));
           btn.classList.add('is-active');
-          const range = parseInt(btn.getAttribute('data-range'), 10) || 10;
+          const range = parseInt(btn.dataset.range, 10) || 10;
           if (Radar && typeof Radar.setRange === 'function') Radar.setRange(range);
-          if (scaleLabel) scaleLabel.textContent = range + ' NM';
+          const lbl = $('map-scale-label');
+          if (lbl) lbl.textContent = range + ' NM';
         });
       });
 
-      // ----- 5. State subscription -----
-      if (Events && typeof Events.on === 'function') {
+      // ----- 8. Event subscriptions (EventBus, not window.Events) -----
+      if (Events) {
 
-        // Timer — updated every engine tick (State.time is set directly, not via State.update)
-        Events.on('engine:tick', ({ simTime }) => {
+        // Timer — engine emits engine:tick every frame with simTime
+        Events.on('engine:tick', function (data) {
           const t = $('sim-timer');
-          if (t) t.textContent = formatHMS(simTime);
+          if (t) t.textContent = formatHMS(data.simTime);
         });
 
-        Events.on('state:changed', (snapshot) => {
-          if (!snapshot) return;
-
-          // Counts
-          if (typeof snapshot.unitCount === 'number') {
-            const u = $('unit-count');
-            if (u) u.textContent = snapshot.unitCount + ' ACTIVE';
-          }
-          if (typeof snapshot.trackCount === 'number') {
-            const tc = $('threat-count'); if (tc) tc.textContent = snapshot.trackCount + ' TRACKS';
-            const ft = $('footer-tracks'); if (ft) ft.textContent = snapshot.trackCount;
-          }
-          if (typeof snapshot.alertCount === 'number') {
-            const fa = $('footer-alerts'); if (fa) fa.textContent = snapshot.alertCount;
-          }
-          if (snapshot.emcon) {
-            const re = $('radar-emcon'); if (re) re.textContent = snapshot.emcon;
-            const fe = $('footer-emcon'); if (fe) fe.textContent = snapshot.emcon;
-          }
+        // Unit list update
+        Events.on('units:updated', function () {
+          const units = window.State ? window.State.units : [];
+          const el = $('unit-count');
+          if (el) el.textContent = units.length + ' ACTIVE';
         });
 
-        // End-of-scenario handlers
+        // Track count update
+        Events.on('state:changed', function (payload) {
+          if (!payload || !payload.state) return;
+          const tracks = payload.state.tracks || [];
+          const tc = $('threat-count'); if (tc) tc.textContent = tracks.length + ' TRACKS';
+          const ft = $('footer-tracks'); if (ft) ft.textContent = tracks.length;
+          const alerts = payload.state.alerts || [];
+          const fa = $('footer-alerts'); if (fa) fa.textContent = alerts.length;
+        });
+
+        // End-of-scenario modal
         const endScreen = $('end-screen');
         const endDialog = $('end-screen-dialog');
 
-        function showEnd(outcome, snapshot) {
+        function showEnd(outcome, snap) {
           if (!endScreen) return;
-          const isVictory = outcome === 'victory';
-          $('end-title').textContent    = isVictory ? 'Mission Complete' : 'Mission Failed';
-          $('end-subtitle').textContent = isVictory ? '// VICTORY //'    : '// DEFEAT //';
-          $('end-outcome').textContent  = isVictory ? 'VICTORY'          : 'DEFEAT';
-
-          endDialog.classList.toggle('end-screen__dialog--defeat', !isVictory);
-
-          if (snapshot) {
-            $('end-elapsed').textContent    = formatHMS(snapshot.elapsedSeconds || 0);
-            $('end-classified').textContent = snapshot.classifiedCount || 0;
-            $('end-hostiles').textContent   = snapshot.hostileCount   || 0;
+          const win = outcome === 'victory';
+          $('end-title').textContent    = win ? 'Mission Complete' : 'Mission Failed';
+          $('end-subtitle').textContent = win ? '// VICTORY //'   : '// DEFEAT //';
+          $('end-outcome').textContent  = win ? 'VICTORY'         : 'DEFEAT';
+          if (endDialog) endDialog.classList.toggle('end-screen__dialog--defeat', !win);
+          if (snap) {
+            $('end-elapsed').textContent    = formatHMS(snap.elapsedSeconds || 0);
+            $('end-classified').textContent = snap.classifiedCount || 0;
+            $('end-hostiles').textContent   = snap.hostileCount   || 0;
           }
-
           if (statusEl) {
             statusEl.classList.remove('scenario-status--running', 'scenario-status--paused');
-            statusEl.classList.add(isVictory ? 'scenario-status--victory' : 'scenario-status--defeat');
-            statusEl.textContent = isVictory ? 'Victory' : 'Defeat';
+            statusEl.classList.add(win ? 'scenario-status--victory' : 'scenario-status--defeat');
+            statusEl.textContent = win ? 'Victory' : 'Defeat';
           }
-
           endScreen.hidden = false;
           endScreen.classList.add('is-visible');
         }
@@ -790,11 +783,10 @@
         Events.on('scenario:defeat',  (snap) => showEnd('defeat',  snap));
       }
 
+      // Return to menu
       const btnReturn = $('btn-return-menu');
       if (btnReturn) {
-        btnReturn.addEventListener('click', () => {
-          window.location.href = 'index.html';
-        });
+        btnReturn.addEventListener('click', () => { window.location.href = 'index.html'; });
       }
 
     })();
