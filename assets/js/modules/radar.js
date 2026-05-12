@@ -267,24 +267,42 @@
   }
 
   /**
-   * NTDS domain symbology for radar blips.
-   * Surface  → full circle
-   * Air      → upper semicircle (chord at centre line)
-   * Sub      → lower semicircle (chord at centre line)
+   * NTDS radar blip — shape by classification, halved by domain.
+   *
+   * Classification:
+   *   UNKNOWN  → axis-aligned square (half for air/sub)
+   *   all else → circle (semicircle for air/sub)
+   *
+   * Domain:
+   *   surface    → full shape
+   *   air        → upper half
+   *   subsurface → lower half
    */
-  function drawBlip(ctx, x, y, r, type) {
-    const t = (type || 'surface').toLowerCase();
+  function drawBlip(ctx, x, y, r, type, classification) {
+    const domain    = (type || 'surface').toLowerCase();
+    const isUnknown = (classification || 'UNKNOWN').toUpperCase() === 'UNKNOWN';
+
     ctx.beginPath();
-    if (t === 'air') {
-      // Upper half: clockwise arc from left (-π) to right (0) passes through top
-      ctx.arc(x, y, r, -Math.PI, 0);
-      ctx.closePath();
-    } else if (t === 'subsurface') {
-      // Lower half: clockwise arc from right (0) to left (π) passes through bottom
-      ctx.arc(x, y, r, 0, Math.PI);
-      ctx.closePath();
+    if (isUnknown) {
+      // Square blip
+      if (domain === 'air') {
+        ctx.rect(x - r, y - r, r * 2, r);          // upper half
+      } else if (domain === 'subsurface') {
+        ctx.rect(x - r, y,     r * 2, r);          // lower half
+      } else {
+        ctx.rect(x - r, y - r, r * 2, r * 2);     // full square
+      }
     } else {
-      ctx.arc(x, y, r, 0, Math.PI * 2);
+      // Circle blip
+      if (domain === 'air') {
+        ctx.arc(x, y, r, -Math.PI, 0);             // upper semicircle
+        ctx.closePath();
+      } else if (domain === 'subsurface') {
+        ctx.arc(x, y, r, 0, Math.PI);              // lower semicircle
+        ctx.closePath();
+      } else {
+        ctx.arc(x, y, r, 0, Math.PI * 2);          // full circle
+      }
     }
     ctx.fill();
     ctx.stroke();
@@ -328,12 +346,12 @@
       }
       ctx.globalAlpha = fade;
 
-      // Main blip — NTDS domain symbology.
+      // Main blip — NTDS domain + classification symbology.
       const blipR = selected === t.id ? 7 : 5;
       ctx.fillStyle = classColor(t.classification);
       ctx.strokeStyle = classColor(t.classification);
       ctx.lineWidth = 1.5;
-      drawBlip(ctx, x, y, blipR, t.type);
+      drawBlip(ctx, x, y, blipR, t.type, t.classification);
 
       if (selected === t.id) {
         ctx.strokeStyle = color('text');

@@ -154,34 +154,54 @@
   }
 
   /**
-   * NTDS domain symbol on the tactical map.
-   * Surface    → full diamond (stroke + fill)
-   * Air        → upper half diamond (inverted V, top triangle)
-   * Sub        → lower half diamond (V, bottom triangle)
-   * Friendly units use circle variants (same halving rule).
+   * NTDS domain + classification symbol on the tactical map.
+   *
+   * Shape by classification:
+   *   UNKNOWN   → axis-aligned square
+   *   all else  → diamond (rotated 45°)
+   *
+   * Domain halving (applied to any shape):
+   *   surface    → full shape
+   *   air        → upper half only
+   *   subsurface → lower half only
    */
-  function drawDomainSymbol(ctx, x, y, size, type, filled) {
-    const t = (type || 'surface').toLowerCase();
+  function drawDomainSymbol(ctx, x, y, size, type, classification) {
+    const domain = (type || 'surface').toLowerCase();
+    const cls    = (classification || 'UNKNOWN').toUpperCase();
+    const isUnknown = cls === 'UNKNOWN';
+
     ctx.beginPath();
-    if (t === 'air') {
-      ctx.moveTo(x, y - size);   // top vertex
-      ctx.lineTo(x + size, y);   // right midpoint
-      ctx.lineTo(x - size, y);   // left midpoint
-      ctx.closePath();
-    } else if (t === 'subsurface') {
-      ctx.moveTo(x - size, y);   // left midpoint
-      ctx.lineTo(x, y + size);   // bottom vertex
-      ctx.lineTo(x + size, y);   // right midpoint
-      ctx.closePath();
+    if (isUnknown) {
+      // Square, axis-aligned
+      if (domain === 'air') {
+        // Upper half of square
+        ctx.rect(x - size, y - size, size * 2, size);
+      } else if (domain === 'subsurface') {
+        // Lower half of square
+        ctx.rect(x - size, y, size * 2, size);
+      } else {
+        ctx.rect(x - size, y - size, size * 2, size * 2);
+      }
     } else {
-      // Full diamond
-      ctx.moveTo(x, y - size);
-      ctx.lineTo(x + size, y);
-      ctx.lineTo(x, y + size);
-      ctx.lineTo(x - size, y);
-      ctx.closePath();
+      // Diamond (rotated 45°)
+      if (domain === 'air') {
+        ctx.moveTo(x, y - size);   // top vertex
+        ctx.lineTo(x + size, y);   // right midpoint
+        ctx.lineTo(x - size, y);   // left midpoint
+        ctx.closePath();
+      } else if (domain === 'subsurface') {
+        ctx.moveTo(x - size, y);   // left midpoint
+        ctx.lineTo(x, y + size);   // bottom vertex
+        ctx.lineTo(x + size, y);   // right midpoint
+        ctx.closePath();
+      } else {
+        ctx.moveTo(x, y - size);
+        ctx.lineTo(x + size, y);
+        ctx.lineTo(x, y + size);
+        ctx.lineTo(x - size, y);
+        ctx.closePath();
+      }
     }
-    if (filled) ctx.fill();
     ctx.stroke();
   }
 
@@ -201,6 +221,19 @@
     ctx.stroke();
   }
 
+  // Helicopter rotor-blade modifier: two short dashes above the symbol.
+  function drawRotorBlades(ctx, x, topY) {
+    const bladeLen = 9;
+    const gap      = 4;
+    ctx.lineWidth  = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x - gap / 2 - bladeLen, topY - 4);
+    ctx.lineTo(x - gap / 2,            topY - 4);
+    ctx.moveTo(x + gap / 2,            topY - 4);
+    ctx.lineTo(x + gap / 2 + bladeLen, topY - 4);
+    ctx.stroke();
+  }
+
   function drawUnits(ctx) {
     const units = global.State.units;
     const selected = global.State.selectedUnit;
@@ -212,9 +245,16 @@
       const u = units[i];
       if (!layerVisible(u.type)) continue;
 
+      const isAir = (u.type || '').toLowerCase() === 'air';
       ctx.strokeStyle = color('friendly');
-      ctx.fillStyle = color('bg');
+      ctx.fillStyle   = color('bg');
       drawUnitCircle(ctx, u.x, u.y, 8, u.type);
+
+      // Helicopter rotor-blade modifier
+      if (isAir) {
+        ctx.strokeStyle = color('friendly');
+        drawRotorBlades(ctx, u.x, u.y - 8);
+      }
 
       if (selected === u.id) {
         ctx.strokeStyle = color('text');
@@ -246,8 +286,8 @@
       ctx.strokeStyle = c;
       ctx.lineWidth = 2;
 
-      // NTDS domain symbol
-      drawDomainSymbol(ctx, t.x, t.y, 7, t.type, false);
+      // NTDS domain + classification symbol
+      drawDomainSymbol(ctx, t.x, t.y, 7, t.type, t.classification);
 
       if (selected === t.id) {
         ctx.beginPath();
