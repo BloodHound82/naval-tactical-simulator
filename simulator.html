@@ -294,6 +294,68 @@
       letter-spacing: 0.14em;
       text-transform: uppercase;
     }
+
+    /* ----- Track Detail Panel (below radar info bar) ----- */
+    #track-detail-panel {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      padding: 10px 14px 12px;
+      background-color: var(--bg-secondary);
+      border-top: 1px solid var(--border-active);
+    }
+    #track-detail-panel.is-visible { display: flex; }
+
+    .track-detail__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .track-detail__id {
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--radar-green);
+    }
+    .track-detail__grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .track-detail__cell { display: flex; flex-direction: column; gap: 2px; }
+
+    .classify-row {
+      display: flex;
+      gap: 6px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+    }
+    .classify-btn {
+      flex: 1;
+      padding: 5px 6px;
+      font-family: var(--font-display);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      transition: all 100ms ease;
+    }
+    .classify-btn:hover { background: var(--bg-panel-hover); color: var(--text-primary); }
+    .classify-btn[data-classify="NEUTRAL"]:hover  { border-color: var(--neutral); color: var(--neutral); }
+    .classify-btn[data-classify="SUSPECT"]:hover  { border-color: var(--unknown); color: var(--unknown); }
+    .classify-btn[data-classify="HOSTILE"]:hover  { border-color: var(--hostile); color: var(--hostile); }
+    .classify-btn.is-active-neutral { border-color: var(--neutral);  color: var(--neutral); }
+    .classify-btn.is-active-suspect { border-color: var(--unknown);  color: var(--unknown); }
+    .classify-btn.is-active-hostile {
+      border-color: var(--hostile);
+      color: var(--hostile);
+      background: rgba(255,68,68,0.10);
+      animation: radar-blink 1.5s ease-in-out infinite;
+    }
   </style>
 </head>
 <body>
@@ -441,6 +503,38 @@
               </div>
             </div>
 
+            <!-- Track detail + classify panel — shown on track selection -->
+            <div id="track-detail-panel" aria-live="polite">
+              <div class="track-detail__header">
+                <span class="track-detail__id" id="td-id">---</span>
+                <span class="hud-label" id="td-type">---</span>
+              </div>
+              <div class="track-detail__grid">
+                <div class="track-detail__cell">
+                  <span class="hud-label">Course</span>
+                  <span class="hud-value" id="td-cse">---&deg;</span>
+                </div>
+                <div class="track-detail__cell">
+                  <span class="hud-label">Speed</span>
+                  <span class="hud-value" id="td-spd">-- kts</span>
+                </div>
+                <div class="track-detail__cell">
+                  <span class="hud-label">BRG</span>
+                  <span class="hud-value" id="td-brg">---&deg;</span>
+                </div>
+                <div class="track-detail__cell">
+                  <span class="hud-label">RNG</span>
+                  <span class="hud-value" id="td-rng">-- NM</span>
+                </div>
+              </div>
+              <div class="classify-row">
+                <span class="hud-label" style="align-self:center;margin-right:4px;">Classify:</span>
+                <button class="classify-btn" data-classify="NEUTRAL">Neutral</button>
+                <button class="classify-btn" data-classify="SUSPECT">Suspect</button>
+                <button class="classify-btn" data-classify="HOSTILE">Hostile</button>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -583,6 +677,65 @@
   <script>
     (function () {
       'use strict';
+
+      // ----- 0. Sound system (Web Audio API, no dependencies) -----
+      const Sounds = (function () {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        let ctx = null;
+        function getCtx() {
+          if (!AC) return null;
+          if (!ctx) ctx = new AC();
+          if (ctx.state === 'suspended') ctx.resume();
+          return ctx;
+        }
+        // Sonar ping — sine, 880 Hz, 0.6 s decay
+        function ping() {
+          const c = getCtx(); if (!c) return;
+          const osc = c.createOscillator(), g = c.createGain();
+          osc.connect(g); g.connect(c.destination);
+          osc.frequency.value = 880; osc.type = 'sine';
+          g.gain.setValueAtTime(0.12, c.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.6);
+          osc.start(); osc.stop(c.currentTime + 0.6);
+        }
+        // Radio crackle — noise burst, 0.18 s
+        function radio() {
+          const c = getCtx(); if (!c) return;
+          const buf = c.createBuffer(1, Math.floor(c.sampleRate * 0.18), c.sampleRate);
+          const d = buf.getChannelData(0);
+          for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.25;
+          const src = c.createBufferSource(), flt = c.createBiquadFilter(), g = c.createGain();
+          flt.type = 'bandpass'; flt.frequency.value = 1400; flt.Q.value = 0.6;
+          src.buffer = buf;
+          src.connect(flt); flt.connect(g); g.connect(c.destination);
+          g.gain.setValueAtTime(0.5, c.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.18);
+          src.start(); src.stop(c.currentTime + 0.2);
+        }
+        // Alert — two-tone square pulse (HOSTILE / CBDR)
+        function alert() {
+          const c = getCtx(); if (!c) return;
+          [0, 0.22, 0.44].forEach(function (off) {
+            const osc = c.createOscillator(), g = c.createGain();
+            osc.connect(g); g.connect(c.destination);
+            osc.frequency.value = off === 0.22 ? 600 : 800; osc.type = 'square';
+            g.gain.setValueAtTime(0.07, c.currentTime + off);
+            g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + off + 0.18);
+            osc.start(c.currentTime + off); osc.stop(c.currentTime + off + 0.2);
+          });
+        }
+        // Classify beep — short sine
+        function classify() {
+          const c = getCtx(); if (!c) return;
+          const osc = c.createOscillator(), g = c.createGain();
+          osc.connect(g); g.connect(c.destination);
+          osc.frequency.value = 660; osc.type = 'sine';
+          g.gain.setValueAtTime(0.09, c.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.14);
+          osc.start(); osc.stop(c.currentTime + 0.15);
+        }
+        return { ping: ping, radio: radio, alert: alert, classify: classify };
+      })();
 
       // ----- 1. Parse scenario param -----
       const params     = new URLSearchParams(window.location.search);
@@ -728,47 +881,213 @@
         });
       });
 
-      // ----- 8. Event subscriptions (EventBus, not window.Events) -----
+      // ----- 8. DOM renderer functions -----
+
+      function classColor(cls) {
+        const map = { FRIENDLY: 'var(--friendly)', HOSTILE: 'var(--hostile)',
+                      NEUTRAL: 'var(--neutral)', SUSPECT: 'var(--unknown)', UNKNOWN: 'var(--unknown)' };
+        return map[(cls || '').toUpperCase()] || 'var(--text-secondary)';
+      }
+
+      function renderUnitCards(units) {
+        const el = $('unit-list');
+        if (!el) return;
+        if (!units || units.length === 0) {
+          el.innerHTML = '<div style="font-size:11px;padding:12px;text-align:center;letter-spacing:0.1em;color:var(--text-secondary);">// AWAITING UNIT FEED //</div>';
+          $('unit-count').textContent = '0 ACTIVE';
+          return;
+        }
+        const selId = window.State ? window.State.selectedUnit : null;
+        el.innerHTML = units.map(function (u) {
+          const fuel = u.fuel || 0;
+          const fuelCls = fuel > 50 ? '' : fuel > 20 ? ' fuel-bar__fill--mid' : ' fuel-bar__fill--low';
+          const selCls  = u.id === selId ? ' unit-card--selected' : '';
+          const sns = u.sensors || {};
+          return [
+            '<div class="unit-card' + selCls + '" data-uid="' + u.id + '">',
+            '  <div class="unit-card__header">',
+            '    <div>',
+            '      <div class="unit-card__designation">' + (u.designation || u.id) + '</div>',
+            '      <div class="unit-card__name">' + (u.name || '') + '</div>',
+            '    </div>',
+            '    <span class="status-badge status-badge--' + (u.status || 'nominal').toLowerCase() + '">' + (u.status || 'NOMINAL') + '</span>',
+            '  </div>',
+            '  <div class="unit-card__stats">',
+            '    <div class="unit-card__stat"><span class="hud-label">Course</span><span class="hud-value">' + String(Math.round(u.course || 0)).padStart(3, '0') + '&deg;</span></div>',
+            '    <div class="unit-card__stat"><span class="hud-label">Speed</span><span class="hud-value">' + (u.speed || 0) + ' kts</span></div>',
+            '  </div>',
+            '  <div class="unit-card__fuel">',
+            '    <span class="hud-label">Fuel ' + fuel + '%</span>',
+            '    <div class="fuel-bar"><div class="fuel-bar__fill' + fuelCls + '" style="width:' + fuel + '%"></div></div>',
+            '  </div>',
+            '  <div class="unit-card__sensors">',
+            '    <span class="sensor-pill' + (sns.radar ? ' sensor-pill--active' : '') + '"><span class="sensor-pill__dot"></span>RDR</span>',
+            '    <span class="sensor-pill' + (sns.sonar_passive ? ' sensor-pill--passive' : '') + '"><span class="sensor-pill__dot"></span>SON-P</span>',
+            '    <span class="sensor-pill' + (sns.sonar_active ? ' sensor-pill--active' : '') + '"><span class="sensor-pill__dot"></span>SON-A</span>',
+            '  </div>',
+            '</div>'
+          ].join('');
+        }).join('');
+        const uc = $('unit-count'); if (uc) uc.textContent = units.length + ' ACTIVE';
+        el.querySelectorAll('.unit-card').forEach(function (card) {
+          card.addEventListener('click', function () {
+            if (window.UnitsManager) window.UnitsManager.selectUnit(card.dataset.uid);
+          });
+        });
+      }
+
+      function renderThreatBoard(tracks) {
+        const el = $('threat-board'); if (!el) return;
+        const selTrack = window.State ? window.State.selectedTrack : null;
+        const ft = $('footer-tracks'); if (ft) ft.textContent = tracks.length;
+        const tc = $('threat-count'); if (tc) tc.textContent = tracks.length + ' TRACKS';
+        if (!tracks || tracks.length === 0) {
+          el.innerHTML = '<div style="padding:8px 6px;font-family:var(--font-data);font-size:11px;color:var(--text-secondary);letter-spacing:0.08em;">// NO TRACKS //</div>';
+          return;
+        }
+        el.innerHTML = tracks.map(function (t) {
+          const cls    = (t.classification || 'UNKNOWN').toUpperCase();
+          const selCls = t.id === selTrack ? ' threat-item--selected' : '';
+          const hstCls = cls === 'HOSTILE'  ? ' threat-item--hostile'  : '';
+          const cpa    = (window.ThreatManager && window.State && window.State.units.length)
+                           ? window.ThreatManager.getCPA(t, window.State.units[0]) : null;
+          const cpaStr = cpa ? (Math.round(cpa.range * 10) / 10) + 'NM' : '--';
+          const brg    = String(Math.round(t.bearing || 0)).padStart(3, '0');
+          const rng    = t.range ? Math.round(t.range) + 'NM' : '--';
+          return [
+            '<div class="threat-item' + selCls + hstCls + '" data-tid="' + t.id + '">',
+            '  <span class="threat-item__id">' + t.id + '</span>',
+            '  <span style="color:' + classColor(cls) + '">' + cls + '</span>',
+            '  <span>' + brg + '&deg;</span>',
+            '  <span>' + rng + '</span>',
+            '  <span>' + cpaStr + '</span>',
+            '</div>'
+          ].join('');
+        }).join('');
+        el.querySelectorAll('.threat-item').forEach(function (row) {
+          row.addEventListener('click', function () {
+            if (window.ThreatManager) window.ThreatManager.selectTrack(row.dataset.tid);
+          });
+        });
+      }
+
+      function addCommsMessage(msg) {
+        const feed = $('comms-feed'); if (!feed) return;
+        const prec = (msg.precedence || 'ROUTINE').toLowerCase();
+        const div  = document.createElement('div');
+        div.className = 'comms-message comms-message--' + prec;
+        div.innerHTML = [
+          '<div class="comms-message__header">',
+          '  <span class="comms-message__dtg">' + (msg.dtg || '') + '</span>',
+          '  <span class="comms-message__precedence">' + (msg.precedence || 'ROUTINE') + '</span>',
+          '</div>',
+          '<div style="font-family:var(--font-display);font-size:9px;letter-spacing:0.1em;color:var(--text-secondary);margin-bottom:4px;">' + (msg.from || '') + ' &rarr; ' + (msg.to || '') + '</div>',
+          '<div class="comms-message__body">' + (msg.text || '') + '</div>'
+        ].join('');
+        feed.insertBefore(div, feed.firstChild);
+      }
+
+      function showTrackDetail(track) {
+        const panel = $('track-detail-panel'); if (!panel) return;
+        if (!track) { panel.classList.remove('is-visible'); return; }
+        $('td-id').textContent  = track.id;
+        $('td-type').textContent = (track.type || '').toUpperCase();
+        $('td-brg').textContent = String(Math.round(track.bearing || 0)).padStart(3, '0') + '°';
+        $('td-rng').textContent = (track.range ? Math.round(track.range) : '--') + ' NM';
+        $('td-cse').textContent = String(Math.round(track.course || 0)).padStart(3, '0') + '°';
+        $('td-spd').textContent = (track.speed || '--') + ' kts';
+        // Update radar info bar too
+        var rit = $('radar-info-track');       if (rit) rit.textContent = track.id;
+        var rib = $('radar-info-bearing');     if (rib) rib.textContent = Math.round(track.bearing || 0) + '°';
+        var rir = $('radar-info-range');       if (rir) rir.textContent = (track.range ? Math.round(track.range) : '--') + ' NM';
+        var ric = $('radar-info-classification'); if (ric) { ric.textContent = track.classification || '---'; ric.style.color = classColor(track.classification); }
+        // Highlight active classify button
+        panel.querySelectorAll('.classify-btn').forEach(function (btn) {
+          btn.classList.remove('is-active-neutral', 'is-active-suspect', 'is-active-hostile');
+          if ((btn.dataset.classify || '').toUpperCase() === (track.classification || '').toUpperCase()) {
+            btn.classList.add('is-active-' + (btn.dataset.classify || '').toLowerCase());
+          }
+        });
+        panel.classList.add('is-visible');
+      }
+
+      // ----- 9. Event subscriptions -----
       if (Events) {
 
-        // Timer — engine emits engine:tick every frame with simTime
+        // Timer
         Events.on('engine:tick', function (data) {
-          const t = $('sim-timer');
-          if (t) t.textContent = formatHMS(data.simTime);
+          var t = $('sim-timer'); if (t) t.textContent = formatHMS(data.simTime);
         });
 
-        // Unit list update
-        Events.on('units:updated', function () {
-          const units = window.State ? window.State.units : [];
-          const el = $('unit-count');
-          if (el) el.textContent = units.length + ' ACTIVE';
+        // Scenario loaded — initial render of units + tracks
+        Events.on('scenario:loaded', function (payload) {
+          var scn = payload && payload.scenario;
+          renderUnitCards(scn ? scn.units || [] : []);
+          renderThreatBoard(window.State ? window.State.tracks : []);
+          Sounds.radio();
         });
 
-        // Track count update
+        // Track selected — show detail panel + sound
+        Events.on('track:selected', function (data) {
+          var tracks = window.State ? window.State.tracks : [];
+          var track  = tracks.find(function (t) { return t.id === data.trackId; });
+          showTrackDetail(track || null);
+          renderThreatBoard(tracks); // refresh selection highlight
+          if (track) Sounds.ping();
+        });
+
+        // Track classified — update panel + board + sound
+        Events.on('track:classified', function (data) {
+          var tracks = window.State ? window.State.tracks : [];
+          renderThreatBoard(tracks);
+          var track = tracks.find(function (t) { return t.id === data.trackId; });
+          if (track) showTrackDetail(track);
+          if ((data.classification || '').toUpperCase() === 'HOSTILE') Sounds.alert();
+          else Sounds.classify();
+        });
+
+        // Units updated — throttled re-render (not every frame)
+        var _unitRenderTimer = null;
+        Events.on('units:updated', function (data) {
+          clearTimeout(_unitRenderTimer);
+          _unitRenderTimer = setTimeout(function () { renderUnitCards(data.units || []); }, 400);
+        });
+
+        // Unit selected — re-render cards to update highlight
+        Events.on('unit:selected', function () {
+          renderUnitCards(window.State ? window.State.units : []);
+        });
+
+        // COMMS new message
+        Events.on('comms:new_message', function (msg) {
+          addCommsMessage(msg);
+          Sounds.radio();
+        });
+
+        // Threat alert — GQ sound
+        Events.on('threat:alert', function () { Sounds.alert(); });
+
+        // Alerts counter
         Events.on('state:changed', function (payload) {
           if (!payload || !payload.state) return;
-          const tracks = payload.state.tracks || [];
-          const tc = $('threat-count'); if (tc) tc.textContent = tracks.length + ' TRACKS';
-          const ft = $('footer-tracks'); if (ft) ft.textContent = tracks.length;
-          const alerts = payload.state.alerts || [];
-          const fa = $('footer-alerts'); if (fa) fa.textContent = alerts.length;
+          var fa = $('footer-alerts'); if (fa) fa.textContent = (payload.state.alerts || []).length;
         });
 
-        // End-of-scenario modal
-        const endScreen = $('end-screen');
-        const endDialog = $('end-screen-dialog');
+        // End-of-scenario
+        var endScreen = $('end-screen');
+        var endDialog = $('end-screen-dialog');
 
         function showEnd(outcome, snap) {
           if (!endScreen) return;
-          const win = outcome === 'victory';
+          var win = outcome === 'victory';
           $('end-title').textContent    = win ? 'Mission Complete' : 'Mission Failed';
           $('end-subtitle').textContent = win ? '// VICTORY //'   : '// DEFEAT //';
           $('end-outcome').textContent  = win ? 'VICTORY'         : 'DEFEAT';
           if (endDialog) endDialog.classList.toggle('end-screen__dialog--defeat', !win);
           if (snap) {
-            $('end-elapsed').textContent    = formatHMS(snap.elapsedSeconds || 0);
-            $('end-classified').textContent = snap.classifiedCount || 0;
-            $('end-hostiles').textContent   = snap.hostileCount   || 0;
+            var ee = $('end-elapsed');     if (ee) ee.textContent = formatHMS(snap.elapsedSeconds || 0);
+            var ec = $('end-classified');  if (ec) ec.textContent = snap.classifiedCount || 0;
+            var eh = $('end-hostiles');    if (eh) eh.textContent = snap.hostileCount    || 0;
           }
           if (statusEl) {
             statusEl.classList.remove('scenario-status--running', 'scenario-status--paused');
@@ -777,17 +1096,27 @@
           }
           endScreen.hidden = false;
           endScreen.classList.add('is-visible');
+          if (win) Sounds.classify(); else Sounds.alert();
         }
 
-        Events.on('scenario:victory', (snap) => showEnd('victory', snap));
-        Events.on('scenario:defeat',  (snap) => showEnd('defeat',  snap));
+        Events.on('scenario:victory', function (snap) { showEnd('victory', snap); });
+        Events.on('scenario:defeat',  function (snap) { showEnd('defeat',  snap); });
       }
 
+      // ----- 10. Classify buttons -----
+      document.querySelectorAll('.classify-btn[data-classify]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var cls     = btn.dataset.classify;
+          var trackId = window.State ? window.State.selectedTrack : null;
+          if (trackId && window.ThreatManager) {
+            window.ThreatManager.classifyTrack(trackId, cls);
+          }
+        });
+      });
+
       // Return to menu
-      const btnReturn = $('btn-return-menu');
-      if (btnReturn) {
-        btnReturn.addEventListener('click', () => { window.location.href = 'index.html'; });
-      }
+      var btnReturn = $('btn-return-menu');
+      if (btnReturn) btnReturn.addEventListener('click', function () { window.location.href = 'index.html'; });
 
     })();
   </script>
