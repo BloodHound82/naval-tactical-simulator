@@ -1,0 +1,209 @@
+/* ==========================================================================
+   TACTICAL MAP
+   ========================================================================== */
+
+.map__container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-secondary);
+}
+
+.map__canvas-wrapper {
+  position: relative;
+  flex: 1;
+  border: 1px solid var(--border);
+  background-color: #061018;
+  box-shadow:
+    inset 0 0 30px rgba(0, 255, 65, 0.06),
+    0 0 6px rgba(0, 255, 65, 0.10);
+  overflow: hidden;
+}
+
+.map__canvas-wrapper canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Layer controls bar above the map */
+.map__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.map__controls-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.map__layer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.map__layer-btn::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background-color: currentColor;
+  opacity: 0.4;
+}
+
+.map__layer-btn:hover {
+  background-color: var(--bg-panel-hover);
+  color: var(--text-primary);
+}
+
+.map__layer-btn.is-active {
+  border-color: var(--border-active);
+  color: var(--friendly);
+  background-color: rgba(0, 170, 255, 0.10);
+  box-shadow: inset 0 0 6px rgba(0, 170, 255, 0.18);
+}
+
+.map__layer-btn.is-active::before {
+  opacity: 1;
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* Coordinates HUD top-left */
+.map__coordinates {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  background-color: rgba(10, 14, 20, 0.78);
+  border: 1px solid var(--border);
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-data);
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.map__coordinates .hud-label {
+  color: var(--text-secondary);
+  font-size: 9px;
+}
+
+/* Scale bar bottom-left */
+.map__scale-bar {
+  position: absolute;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.map__scale-bar-line {
+  width: 100px;
+  height: 6px;
+  border: 1px solid var(--radar-green);
+  border-top: none;
+  position: relative;
+}
+
+.map__scale-bar-line::before,
+.map__scale-bar-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 6px;
+  background-color: var(--radar-green);
+}
+.map__scale-bar-line::before { left: 0; }
+.map__scale-bar-line::after  { right: 0; }
+
+/* Waypoint indicator pulsing dot */
+.map__waypoint-indicator {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--friendly);
+  box-shadow: 0 0 0 0 var(--friendly);
+  animation: waypoint-pulse 1.8s ease-out infinite;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+@keyframes waypoint-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 170, 255, 0.65); }
+  70%  { box-shadow: 0 0 0 14px rgba(0, 170, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 170, 255, 0); }
+}
+
+/* Sector labels */
+.map__sector-label {
+  position: absolute;
+  padding: 2px 8px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-secondary);
+  background-color: rgba(10, 14, 20, 0.55);
+  border: 1px dashed var(--border);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* Compass rose top-right */
+.map__compass {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 4;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background-color: rgba(10, 14, 20, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: var(--radar-green);
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+
+.map__compass span:nth-child(1) { position: absolute; top: 4px; }
+.map__compass span:nth-child(2) { position: absolute; right: 4px; }
+.map__compass span:nth-child(3) { position: absolute; bottom: 4px; }
+.map__compass span:nth-child(4) { position: absolute; left: 4px; }

@@ -1,0 +1,166 @@
+{
+  "id": "bravo",
+  "name": "SCENARIO BRAVO — Convoy Escort",
+  "briefing": "CTG 2.4 is escorting merchant convoy SIERRA-MIKE through chokepoint VICTOR. Two cargo vessels under our protection. INTEL: hostile surface action group reported within 80 NM. Possible submerged threat. Maintain screen, classify all contacts, prosecute hostiles only on direct order. Convoy must reach waypoint ZULU intact.",
+  "duration_minutes": 25,
+  "timeScale": 3,
+  "units": [
+    {
+      "id": "W-10",
+      "type": "surface",
+      "name": "FNS MISTRAL",
+      "designation": "Whiskey-10",
+      "x": 250, "y": 400,
+      "course": 90,
+      "speed": 14,
+      "fuel": 88,
+      "status": "NOMINAL",
+      "sensors": { "radar": true, "sonar_passive": true, "sonar_active": true },
+      "weapons": ["MM40", "76mm OTO", "ASTER15", "MILAS"]
+    },
+    {
+      "id": "W-11",
+      "type": "surface",
+      "name": "FNS LIBECCIO",
+      "designation": "Whiskey-11",
+      "x": 320, "y": 360,
+      "course": 90,
+      "speed": 14,
+      "fuel": 91,
+      "status": "NOMINAL",
+      "sensors": { "radar": true, "sonar_passive": true, "sonar_active": false },
+      "weapons": ["MM40", "76mm OTO", "ASTER15"]
+    },
+    {
+      "id": "S-01",
+      "type": "subsurface",
+      "name": "FNS SCIROCCO",
+      "designation": "Sierra-01",
+      "x": 290, "y": 430,
+      "course": 90,
+      "speed": 6,
+      "fuel": 95,
+      "status": "NOMINAL",
+      "sensors": { "radar": false, "sonar_passive": true, "sonar_active": true },
+      "weapons": ["BLACK SHARK TORPEDO"]
+    },
+    {
+      "id": "A-10",
+      "type": "air",
+      "name": "HELO CHARLIE 2",
+      "designation": "Alfa-10",
+      "x": 280, "y": 380,
+      "course": 90,
+      "speed": 85,
+      "fuel": 70,
+      "status": "NOMINAL",
+      "sensors": { "radar": true, "sonar_passive": false, "sonar_active": true },
+      "weapons": ["TORPEDO A244", "MARTE MK2"]
+    }
+  ],
+  "initial_tracks": [
+    {
+      "id": "Track-2001",
+      "classification": "NEUTRAL",
+      "type": "surface",
+      "x": 285, "y": 395,
+      "course": 90,
+      "speed": 12,
+      "bearing": 70,
+      "range": 4
+    },
+    {
+      "id": "Track-2002",
+      "classification": "NEUTRAL",
+      "type": "surface",
+      "x": 295, "y": 405,
+      "course": 90,
+      "speed": 12,
+      "bearing": 105,
+      "range": 5
+    },
+    {
+      "id": "Track-2003",
+      "classification": "UNKNOWN",
+      "type": "subsurface",
+      "x": 430, "y": 380,
+      "course": 250,
+      "speed": 5,
+      "bearing": 80,
+      "range": 36
+    },
+    {
+      "id": "Track-2004",
+      "classification": "UNKNOWN",
+      "type": "surface",
+      "x": 500, "y": 350,
+      "course": 260,
+      "speed": 22,
+      "bearing": 75,
+      "range": 52
+    }
+  ],
+  "events": [
+    {
+      "at_second": 90,
+      "type": "comms_message",
+      "data": {
+        "from": "CTG 2.4 INTEL",
+        "to": "ALL UNITS",
+        "precedence": "PRIORITY",
+        "text": "PRIORITY — UNIDENTIFIED SURFACE GROUP DETECTED BEARING 075, RANGE 50 NM. PROBABLE FAST ATTACK CRAFT. CONTINUE BASE COURSE, INCREASE ESM COVERAGE."
+      }
+    },
+    {
+      "at_second": 240,
+      "type": "track_classify",
+      "data": { "trackId": "Track-2004", "classification": "HOSTILE" }
+    },
+    {
+      "at_second": 240,
+      "type": "comms_message",
+      "data": {
+        "from": "CTG 2.4",
+        "to": "ALL UNITS",
+        "precedence": "FLASH",
+        "text": "FLASH — TRACK-2004 HOSTILE. SAG INBOUND. WEAPONS TIGHT. ESTABLISH SCREEN. MERCHANTS MAINTAIN SPEED, STEER 100."
+      }
+    },
+    {
+      "at_second": 450,
+      "type": "track_spawn",
+      "data": {
+        "id": "Track-2005",
+        "classification": "UNKNOWN",
+        "type": "air",
+        "x": 480, "y": 320,
+        "course": 240,
+        "speed": 320,
+        "bearing": 70,
+        "range": 44
+      }
+    },
+    {
+      "at_second": 720,
+      "type": "track_classify",
+      "data": { "trackId": "Track-2003", "classification": "HOSTILE" }
+    },
+    {
+      "at_second": 1100,
+      "type": "comms_message",
+      "data": {
+        "from": "COMCONVOY",
+        "to": "CTG 2.4",
+        "precedence": "IMMEDIATE",
+        "text": "IMMEDIATE — CONVOY APPROACHING WAYPOINT ZULU. SCREEN HOLDING. WELL DONE. MAINTAIN VIGILANCE UNTIL CHOP."
+      }
+    }
+  ],
+  "victory_conditions": [
+    { "type": "time_survived", "seconds": 1500 }
+  ],
+  "defeat_conditions": [
+    { "type": "unit_destroyed", "unitId": "Track-2001" },
+    { "type": "unit_destroyed", "unitId": "Track-2002" }
+  ]
+}

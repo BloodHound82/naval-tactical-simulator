@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naval Tactical Simulator // Operations Center</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Share+Tech+Mono&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Project styles -->
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <link rel="stylesheet" href="assets/css/radar.css" />
+  <link rel="stylesheet" href="assets/css/map.css" />
+  <link rel="stylesheet" href="assets/css/hud.css" />
+
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background:
+        radial-gradient(circle at 30% 30%, rgba(0, 170, 255, 0.03), transparent 60%),
+        var(--bg-primary);
+    }
+
+    .sim-shell {
+      display: grid;
+      grid-template-rows: 56px 1fr 32px;
+      height: 100vh;
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    /* ----- Header ----- */
+    .sim-header {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 24px;
+      padding: 0 16px;
+      background-color: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sim-header__left,
+    .sim-header__right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .sim-header__right { justify-content: flex-end; }
+
+    .sim-header__center {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .sim-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: 0.22em;
+      color: var(--radar-green);
+      text-shadow: 0 0 6px rgba(0, 255, 65, 0.45);
+    }
+
+    .sim-logo::before {
+      content: '';
+      width: 10px; height: 10px;
+      background-color: var(--radar-green);
+      box-shadow: 0 0 6px var(--radar-green);
+      transform: rotate(45deg);
+    }
+
+    .sim-header__scenario {
+      font-family: var(--font-display);
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      padding-left: 16px;
+      border-left: 1px solid var(--border);
+    }
+    .sim-header__scenario strong {
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    .sim-header__controls {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .timescale-group {
+      display: inline-flex;
+      border: 1px solid var(--border);
+    }
+    .timescale-group button {
+      padding: 6px 10px;
+      font-family: var(--font-display);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--text-secondary);
+      background-color: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 120ms ease;
+    }
+    .timescale-group button:last-child { border-right: none; }
+    .timescale-group button:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-panel-hover);
+    }
+    .timescale-group button.is-active {
+      color: var(--radar-green);
+      background-color: rgba(0, 255, 65, 0.10);
+    }
+
+    /* ----- Main grid ----- */
+    .sim-main {
+      display: grid;
+      grid-template-columns: 280px 1fr 300px;
+      gap: 8px;
+      padding: 8px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .sim-center {
+      display: grid;
+      grid-template-rows: 60fr 40fr;
+      gap: 8px;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    .sim-center__map {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sim-center__radar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      padding: 12px;
+    }
+
+    /* ----- Footer status bar ----- */
+    .sim-footer {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      background-color: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      font-family: var(--font-display);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .sim-footer__cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sim-footer__cell strong {
+      color: var(--text-data);
+      font-family: var(--font-data);
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+
+    .sim-footer__cell--alert strong {
+      color: var(--hostile);
+    }
+
+    /* ----- End screen modal ----- */
+    .end-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(10, 14, 20, 0.92);
+      backdrop-filter: blur(4px);
+    }
+    .end-screen.is-visible { display: flex; }
+
+    .end-screen__dialog {
+      width: 480px;
+      max-width: 92vw;
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border);
+      padding: 32px;
+      position: relative;
+      animation: fade-in-up 0.4s ease-out;
+    }
+
+    .end-screen__dialog::before,
+    .end-screen__dialog::after {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+    }
+    .end-screen__dialog::before {
+      top: -1px; left: -1px;
+      border-top: 2px solid var(--radar-green);
+      border-left: 2px solid var(--radar-green);
+    }
+    .end-screen__dialog::after {
+      bottom: -1px; right: -1px;
+      border-bottom: 2px solid var(--radar-green);
+      border-right: 2px solid var(--radar-green);
+    }
+
+    .end-screen__dialog--defeat::before,
+    .end-screen__dialog--defeat::after {
+      border-color: var(--hostile);
+    }
+
+    .end-screen__title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: var(--radar-green);
+      text-shadow: 0 0 10px rgba(0, 255, 65, 0.4);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .end-screen__dialog--defeat .end-screen__title {
+      color: var(--hostile);
+      text-shadow: 0 0 10px rgba(255, 68, 68, 0.4);
+    }
+
+    .end-screen__subtitle {
+      font-family: var(--font-data);
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .end-screen__stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 16px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .end-screen__stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .end-screen__actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    /* Track info bar formatting tweak */
+    #radar-info-classification {
+      font-family: var(--font-display);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sim-shell">
+
+    <!-- =================== HEADER =================== -->
+    <header class="sim-header" role="banner">
+      <div class="sim-header__left">
+        <div class="sim-logo">NTS</div>
+        <div class="sim-header__scenario">
+          Scenario <strong id="scenario-name">--</strong>
+        </div>
+      </div>
+
+      <div class="sim-header__center">
+        <div>
+          <span class="time-display__label">SIM TIME</span>
+          <span class="time-display" id="sim-timer">00:00:00</span>
+        </div>
+        <span class="scenario-status scenario-status--running" id="scenario-status">
+          Running
+        </span>
+      </div>
+
+      <div class="sim-header__right">
+        <div class="sim-header__controls">
+          <button type="button" class="btn-tactical" id="btn-pause" aria-label="Pause simulation">
+            Pause
+          </button>
+          <button type="button" class="btn-tactical" id="btn-resume" aria-label="Resume simulation" disabled>
+            Resume
+          </button>
+        </div>
+
+        <div class="timescale-group" role="group" aria-label="Time scale">
+          <button type="button" data-timescale="1" class="is-active">1x</button>
+          <button type="button" data-timescale="2">2x</button>
+          <button type="button" data-timescale="5">5x</button>
+        </div>
+
+        <button type="button" class="btn-tactical btn-tactical--danger" id="btn-abort" aria-label="Abort scenario">
+          Abort
+        </button>
+      </div>
+    </header>
+
+    <!-- =================== MAIN =================== -->
+    <main class="sim-main">
+
+      <!-- ============ LEFT PANEL ============ -->
+      <aside class="hud__left-panel" aria-label="Friendly units">
+        <header class="hud__panel-header">
+          <h2 class="hud__panel-title">Friendly Units</h2>
+          <span class="hud-label" id="unit-count">0 ACTIVE</span>
+        </header>
+
+        <div class="hud__panel-section">
+          <div class="hud__panel-section-scroll" id="unit-list" aria-live="polite">
+            <!-- Unit cards populated by JS -->
+            <div class="text-secondary" style="font-size: 11px; padding: 12px; text-align: center; letter-spacing: 0.1em;">
+              // AWAITING UNIT FEED //
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ============ CENTER ============ -->
+      <section class="sim-center" aria-label="Tactical displays">
+
+        <!-- Tactical Map -->
+        <div class="sim-center__map">
+          <div class="map__controls">
+            <div class="map__controls-group" role="group" aria-label="Layer toggles">
+              <span class="hud-label">Layers</span>
+              <button type="button" class="map__layer-btn is-active" data-layer="surface">SURF</button>
+              <button type="button" class="map__layer-btn" data-layer="subsurface">SUB</button>
+              <button type="button" class="map__layer-btn" data-layer="air">AIR</button>
+            </div>
+            <div class="map__controls-group">
+              <span class="hud-label">View</span>
+              <button type="button" class="map__layer-btn" data-action="center">Recenter</button>
+            </div>
+          </div>
+
+          <div class="map__canvas-wrapper map__container">
+            <canvas id="map-canvas" aria-label="Tactical map canvas"></canvas>
+
+            <div class="map__coordinates" id="map-coords" aria-live="polite">
+              <span class="hud-label">Cursor</span>
+              <span>LAT 00&deg;00'00" N</span>
+              <span>LON 000&deg;00'00" E</span>
+            </div>
+
+            <div class="map__compass" aria-hidden="true">
+              <span>N</span><span>E</span><span>S</span><span>W</span>
+            </div>
+
+            <div class="map__scale-bar" aria-hidden="true">
+              <div class="map__scale-bar-line"></div>
+              <span id="map-scale-label">10 NM</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Radar PPI -->
+        <div class="sim-center__radar">
+          <div class="radar__container radar__container--active" id="radar-container">
+
+            <div class="radar__header">
+              <span class="radar__header-title">PPI &mdash; Air Search</span>
+              <span class="hud-label">EMCON <span class="text-data" id="radar-emcon">DELTA</span></span>
+            </div>
+
+            <div class="radar__viewport">
+              <canvas id="radar-canvas" class="radar__display" aria-label="Radar PPI display"></canvas>
+              <div class="radar__overlay" id="radar-overlay"></div>
+
+              <!-- No signal stato — toggled by JS -->
+              <div class="radar__no-signal" id="radar-no-signal" hidden>NO SIGNAL</div>
+            </div>
+
+            <div class="radar__range-selector" role="group" aria-label="Radar range">
+              <button type="button" class="radar__range-btn is-active" data-range="10">10 NM</button>
+              <button type="button" class="radar__range-btn" data-range="20">20 NM</button>
+              <button type="button" class="radar__range-btn" data-range="40">40 NM</button>
+            </div>
+
+            <div class="radar__info-bar" id="radar-info" aria-live="polite">
+              <div class="radar__info-cell">
+                <span class="hud-label">Track</span>
+                <span class="hud-value" id="radar-info-track">---</span>
+              </div>
+              <div class="radar__info-cell">
+                <span class="hud-label">Bearing</span>
+                <span class="hud-value" id="radar-info-bearing">---&deg;</span>
+              </div>
+              <div class="radar__info-cell">
+                <span class="hud-label">Range</span>
+                <span class="hud-value" id="radar-info-range">-- NM</span>
+              </div>
+              <div class="radar__info-cell">
+                <span class="hud-label">Class</span>
+                <span class="hud-value" id="radar-info-classification">---</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============ RIGHT PANEL ============ -->
+      <aside class="hud__right-panel" aria-label="Threat assessment and communications">
+
+        <!-- Threat Board -->
+        <div class="hud__panel-section threat-panel" style="flex: 1 1 50%;">
+          <header class="hud__panel-header">
+            <h2 class="hud__panel-title">Threat Board</h2>
+            <span class="hud-label" id="threat-count">0 TRACKS</span>
+          </header>
+
+          <div class="threat-panel__header" aria-hidden="true">
+            <span>Track ID</span>
+            <span>Class</span>
+            <span>BRG</span>
+            <span>RNG</span>
+            <span>CPA</span>
+          </div>
+
+          <div class="threat-panel__list" id="threat-board" aria-live="polite">
+            <!-- Threat items populated by JS -->
+          </div>
+        </div>
+
+        <!-- COMMS Log -->
+        <div class="hud__panel-section comms-log" style="flex: 1 1 50%;">
+          <header class="hud__panel-header">
+            <h2 class="hud__panel-title">COMMS</h2>
+            <span class="hud__panel-badge">Live</span>
+          </header>
+
+          <div class="comms-feed" id="comms-feed" aria-live="polite">
+            <!-- COMMS messages populated by JS -->
+          </div>
+        </div>
+
+      </aside>
+
+    </main>
+
+    <!-- =================== FOOTER =================== -->
+    <footer class="sim-footer" role="contentinfo">
+      <div class="sim-footer__cell">
+        Tracks <strong id="footer-tracks">0</strong>
+      </div>
+      <div class="sim-footer__cell sim-footer__cell--alert">
+        Alerts <strong id="footer-alerts">0</strong>
+      </div>
+      <div class="sim-footer__cell">
+        EMCON <strong id="footer-emcon">DELTA</strong>
+      </div>
+      <div class="sim-footer__cell">
+        Time Scale <strong id="footer-timescale">1x</strong>
+      </div>
+      <div class="sim-footer__cell">
+        SYS <strong class="text-data" id="footer-sys">ONLINE</strong>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- =================== END SCREEN MODAL =================== -->
+  <div class="end-screen" id="end-screen" role="dialog" aria-modal="true" aria-labelledby="end-title" hidden>
+    <div class="end-screen__dialog" id="end-screen-dialog">
+      <div class="end-screen__title" id="end-title">Mission Complete</div>
+      <div class="end-screen__subtitle" id="end-subtitle">// VICTORY //</div>
+
+      <div class="end-screen__stats">
+        <div class="end-screen__stat">
+          <span class="hud-label">Elapsed Time</span>
+          <span class="hud-value" id="end-elapsed">--:--:--</span>
+        </div>
+        <div class="end-screen__stat">
+          <span class="hud-label">Tracks Classified</span>
+          <span class="hud-value" id="end-classified">0</span>
+        </div>
+        <div class="end-screen__stat">
+          <span class="hud-label">Hostile Contacts</span>
+          <span class="hud-value" id="end-hostiles">0</span>
+        </div>
+        <div class="end-screen__stat">
+          <span class="hud-label">Outcome</span>
+          <span class="hud-value" id="end-outcome">VICTORY</span>
+        </div>
+      </div>
+
+      <div class="end-screen__actions">
+        <button type="button" class="btn-tactical" id="btn-debrief" disabled aria-label="Debrief (not available)">
+          Debrief
+        </button>
+        <button type="button" class="btn-tactical btn-tactical--primary" id="btn-return-menu">
+          Return to Menu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== SCRIPTS =================== -->
+
+  <!-- Utils -->
+  <script src="assets/js/utils/dtg.js"></script>
+  <script src="assets/js/utils/coords.js"></script>
+
+  <!-- Core -->
+  <script src="assets/js/core/events.js"></script>
+  <script src="assets/js/core/state.js"></script>
+  <script src="assets/js/core/engine.js"></script>
+
+  <!-- Modules -->
+  <script src="assets/js/modules/scenarios.js"></script>
+  <script src="assets/js/modules/units.js"></script>
+  <script src="assets/js/modules/comms.js"></script>
+  <script src="assets/js/modules/threat.js"></script>
+  <script src="assets/js/modules/radar.js"></script>
+  <script src="assets/js/modules/map.js"></script>
+
+  <!-- Init -->
+  <script>
+    (function () {
+      'use strict';
+
+      // ----- 1. Parse scenario param -----
+      const params = new URLSearchParams(window.location.search);
+      const scenarioId = (params.get('scenario') || 'alpha').toLowerCase();
+      const scenarioName = scenarioId.toUpperCase();
+      const scnNameEl = document.getElementById('scenario-name');
+      if (scnNameEl) scnNameEl.textContent = scenarioName;
+
+      // ----- 2. Helpers -----
+      const $ = (id) => document.getElementById(id);
+
+      function formatHMS(seconds) {
+        seconds = Math.max(0, Math.floor(seconds || 0));
+        const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+        const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+        const s = String(seconds % 60).padStart(2, '0');
+        return `${h}:${m}:${s}`;
+      }
+
+      function safeCall(fn) {
+        try { return typeof fn === 'function' ? fn() : null; }
+        catch (err) { console.warn('[init] safeCall failed:', err); return null; }
+      }
+
+      // ----- 3. Init modules (guarded — JS files may not exist yet in MVP) -----
+      const Events  = window.Events  || null;
+      const State   = window.State   || null;
+      const Engine  = window.Engine  || null;
+      const Scenarios = window.Scenarios || null;
+      const Units   = window.Units   || null;
+      const Comms   = window.Comms   || null;
+      const Threat  = window.Threat  || null;
+      const Radar   = window.Radar   || null;
+      const MapMod  = window.MapMod  || window.MapModule || null;
+
+      // Init each module if it has an init function
+      [State, Engine, Units, Comms, Threat, Radar, MapMod].forEach((m) => {
+        if (m && typeof m.init === 'function') safeCall(() => m.init());
+      });
+
+      // Load scenario
+      if (Scenarios && typeof Scenarios.load === 'function') {
+        safeCall(() => Scenarios.load(scenarioId));
+      }
+
+      // Start engine
+      if (Engine && typeof Engine.start === 'function') {
+        safeCall(() => Engine.start());
+      }
+
+      // ----- 4. Wire up UI controls -----
+      const btnPause     = $('btn-pause');
+      const btnResume    = $('btn-resume');
+      const btnAbort     = $('btn-abort');
+      const statusEl     = $('scenario-status');
+      const footerTimescale = $('footer-timescale');
+
+      function setPaused(paused) {
+        if (btnPause)  btnPause.disabled  = paused;
+        if (btnResume) btnResume.disabled = !paused;
+        if (statusEl) {
+          statusEl.classList.toggle('scenario-status--running', !paused);
+          statusEl.classList.toggle('scenario-status--paused',  paused);
+          statusEl.textContent = paused ? 'Paused' : 'Running';
+        }
+      }
+
+      if (btnPause) {
+        btnPause.addEventListener('click', () => {
+          if (Engine && typeof Engine.pause === 'function') Engine.pause();
+          setPaused(true);
+        });
+      }
+
+      if (btnResume) {
+        btnResume.addEventListener('click', () => {
+          if (Engine && typeof Engine.resume === 'function') Engine.resume();
+          setPaused(false);
+        });
+      }
+
+      if (btnAbort) {
+        btnAbort.addEventListener('click', () => {
+          if (Engine && typeof Engine.stop === 'function') Engine.stop();
+          window.location.href = 'index.html';
+        });
+      }
+
+      // Time scale buttons
+      document.querySelectorAll('.timescale-group button[data-timescale]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.timescale-group button').forEach(b => b.classList.remove('is-active'));
+          btn.classList.add('is-active');
+          const factor = parseInt(btn.getAttribute('data-timescale'), 10) || 1;
+          if (Engine && typeof Engine.setTimeScale === 'function') Engine.setTimeScale(factor);
+          if (footerTimescale) footerTimescale.textContent = factor + 'x';
+        });
+      });
+
+      // Layer toggle buttons
+      document.querySelectorAll('.map__layer-btn[data-layer]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          btn.classList.toggle('is-active');
+          const layer = btn.getAttribute('data-layer');
+          const active = btn.classList.contains('is-active');
+          if (MapMod && typeof MapMod.toggleLayer === 'function') {
+            MapMod.toggleLayer(layer, active);
+          }
+        });
+      });
+
+      // Radar range
+      const scaleLabel = $('map-scale-label');
+      document.querySelectorAll('.radar__range-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.radar__range-btn').forEach(b => b.classList.remove('is-active'));
+          btn.classList.add('is-active');
+          const range = parseInt(btn.getAttribute('data-range'), 10) || 10;
+          if (Radar && typeof Radar.setRange === 'function') Radar.setRange(range);
+          if (scaleLabel) scaleLabel.textContent = range + ' NM';
+        });
+      });
+
+      // ----- 5. State subscription -----
+      if (Events && typeof Events.on === 'function') {
+
+        Events.on('state:changed', (snapshot) => {
+          if (!snapshot) return;
+
+          // Timer
+          if (typeof snapshot.elapsedSeconds === 'number') {
+            const t = $('sim-timer');
+            if (t) t.textContent = formatHMS(snapshot.elapsedSeconds);
+          }
+
+          // Counts
+          if (typeof snapshot.unitCount === 'number') {
+            const u = $('unit-count');
+            if (u) u.textContent = snapshot.unitCount + ' ACTIVE';
+          }
+          if (typeof snapshot.trackCount === 'number') {
+            const tc = $('threat-count'); if (tc) tc.textContent = snapshot.trackCount + ' TRACKS';
+            const ft = $('footer-tracks'); if (ft) ft.textContent = snapshot.trackCount;
+          }
+          if (typeof snapshot.alertCount === 'number') {
+            const fa = $('footer-alerts'); if (fa) fa.textContent = snapshot.alertCount;
+          }
+          if (snapshot.emcon) {
+            const re = $('radar-emcon'); if (re) re.textContent = snapshot.emcon;
+            const fe = $('footer-emcon'); if (fe) fe.textContent = snapshot.emcon;
+          }
+        });
+
+        // End-of-scenario handlers
+        const endScreen = $('end-screen');
+        const endDialog = $('end-screen-dialog');
+
+        function showEnd(outcome, snapshot) {
+          if (!endScreen) return;
+          const isVictory = outcome === 'victory';
+          $('end-title').textContent    = isVictory ? 'Mission Complete' : 'Mission Failed';
+          $('end-subtitle').textContent = isVictory ? '// VICTORY //'    : '// DEFEAT //';
+          $('end-outcome').textContent  = isVictory ? 'VICTORY'          : 'DEFEAT';
+
+          endDialog.classList.toggle('end-screen__dialog--defeat', !isVictory);
+
+          if (snapshot) {
+            $('end-elapsed').textContent    = formatHMS(snapshot.elapsedSeconds || 0);
+            $('end-classified').textContent = snapshot.classifiedCount || 0;
+            $('end-hostiles').textContent   = snapshot.hostileCount   || 0;
+          }
+
+          if (statusEl) {
+            statusEl.classList.remove('scenario-status--running', 'scenario-status--paused');
+            statusEl.classList.add(isVictory ? 'scenario-status--victory' : 'scenario-status--defeat');
+            statusEl.textContent = isVictory ? 'Victory' : 'Defeat';
+          }
+
+          endScreen.hidden = false;
+          endScreen.classList.add('is-visible');
+        }
+
+        Events.on('scenario:victory', (snap) => showEnd('victory', snap));
+        Events.on('scenario:defeat',  (snap) => showEnd('defeat',  snap));
+      }
+
+      const btnReturn = $('btn-return-menu');
+      if (btnReturn) {
+        btnReturn.addEventListener('click', () => {
+          window.location.href = 'index.html';
+        });
+      }
+
+    })();
+  </script>
+</body>
+</html>

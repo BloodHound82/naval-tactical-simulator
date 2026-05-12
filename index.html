@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naval Tactical Simulator // Scenario Selection</title>
+
+  <!-- Tailwind CDN — used only for layout primitives -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Share+Tech+Mono&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Project styles -->
+  <link rel="stylesheet" href="assets/css/main.css" />
+
+  <style>
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(0, 170, 255, 0.05), transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 255, 65, 0.04), transparent 50%),
+        var(--bg-primary);
+      background-attachment: fixed;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Grid backdrop */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 255, 65, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 65, 0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .menu-shell {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 48px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .menu-classification {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      font-family: var(--font-display);
+      font-size: 10px;
+      letter-spacing: 0.32em;
+      color: var(--text-alert);
+      text-transform: uppercase;
+      padding: 4px 0;
+      border-top: 1px solid var(--hostile);
+      border-bottom: 1px solid var(--hostile);
+      margin-bottom: 36px;
+      animation: radar-blink 2.4s ease-in-out infinite;
+    }
+
+    .menu-hero {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .menu-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 52px;
+      letter-spacing: 0.2em;
+      color: var(--radar-green);
+      text-shadow:
+        0 0 10px rgba(0, 255, 65, 0.55),
+        0 0 28px rgba(0, 255, 65, 0.20);
+      margin-bottom: 12px;
+      line-height: 1;
+    }
+
+    .menu-subtitle {
+      font-family: var(--font-data);
+      font-size: 14px;
+      letter-spacing: 0.35em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .menu-meta {
+      display: inline-flex;
+      gap: 14px;
+      align-items: center;
+      margin-top: 20px;
+      padding: 4px 14px;
+      border: 1px solid var(--border);
+      background-color: var(--bg-panel);
+      font-family: var(--font-display);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .menu-meta span:nth-child(2),
+    .menu-meta span:nth-child(4) {
+      color: var(--border);
+    }
+
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    @media (max-width: 720px) {
+      .scenario-grid { grid-template-columns: 1fr; }
+      .menu-title { font-size: 36px; }
+    }
+
+    .scenario-card {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+      opacity: 0;
+      animation: fade-in-up 0.6s ease-out forwards;
+    }
+
+    .scenario-card:nth-child(1) { animation-delay: 0.15s; }
+    .scenario-card:nth-child(2) { animation-delay: 0.35s; }
+
+    .scenario-card:hover {
+      border-color: var(--border-active);
+      transform: translateY(-2px);
+      box-shadow:
+        0 0 14px rgba(0, 170, 255, 0.18),
+        inset 0 0 14px rgba(0, 170, 255, 0.06);
+    }
+
+    .scenario-card::before {
+      content: '';
+      position: absolute;
+      top: -1px; left: -1px;
+      width: 16px; height: 16px;
+      border-top: 2px solid var(--radar-green);
+      border-left: 2px solid var(--radar-green);
+    }
+    .scenario-card::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; right: -1px;
+      width: 16px; height: 16px;
+      border-bottom: 2px solid var(--radar-green);
+      border-right: 2px solid var(--radar-green);
+    }
+
+    .scenario-card__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .scenario-card__codename {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: 0.18em;
+      color: var(--text-primary);
+      text-transform: uppercase;
+    }
+
+    .scenario-card__codename small {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .diff-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      border: 1px solid currentColor;
+      text-transform: uppercase;
+    }
+
+    .diff-badge--routine {
+      color: var(--radar-green);
+      background-color: rgba(0, 255, 65, 0.08);
+    }
+
+    .diff-badge--elevated {
+      color: var(--unknown);
+      background-color: rgba(255, 170, 0, 0.08);
+    }
+
+    .scenario-card__briefing {
+      font-family: var(--font-data);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+      flex: 1;
+    }
+
+    .scenario-card__meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      padding: 10px 12px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .scenario-card__meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .scenario-card__cta {
+      margin-top: 4px;
+    }
+
+    .menu-footer {
+      margin-top: auto;
+      padding-top: 32px;
+      text-align: center;
+      font-family: var(--font-display);
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <main class="menu-shell">
+
+    <div class="menu-classification" role="note" aria-label="Classification banner">
+      <span>// UNCLASSIFIED</span>
+      <span>EXERCISE ONLY</span>
+      <span>NOT FOR OPERATIONAL USE //</span>
+    </div>
+
+    <section class="menu-hero">
+      <h1 class="menu-title">NAVAL TACTICAL SIMULATOR</h1>
+      <p class="menu-subtitle">CTAG 1.2 &mdash; Tactical Operations Center</p>
+      <div class="menu-meta">
+        <span>SIM REV 1.0</span><span>//</span>
+        <span>BUILD 26.05</span><span>//</span>
+        <span>PORTFOLIO DEMO</span>
+      </div>
+    </section>
+
+    <section class="scenario-grid" aria-label="Available scenarios">
+
+      <!-- SCENARIO ALPHA -->
+      <article class="scenario-card" aria-labelledby="scn-alpha-title">
+        <header class="scenario-card__head">
+          <div>
+            <h2 id="scn-alpha-title" class="scenario-card__codename">
+              SCENARIO ALPHA
+              <small>OP &middot; QUIET WATCH</small>
+            </h2>
+          </div>
+          <span class="diff-badge diff-badge--routine">Routine</span>
+        </header>
+
+        <p class="scenario-card__briefing">
+          Patrol task group conducts presence operations along a friendly coastline.
+          Routine traffic, civilian fishing fleets, ISR overflight. Classify all
+          contacts and maintain situational awareness.
+        </p>
+
+        <div class="scenario-card__meta">
+          <div class="scenario-card__meta-item">
+            <span class="hud-label">Duration</span>
+            <span class="hud-value">~ 10 MIN</span>
+          </div>
+          <div class="scenario-card__meta-item">
+            <span class="hud-label">Units</span>
+            <span class="hud-value">3 FRIENDLY</span>
+          </div>
+          <div class="scenario-card__meta-item">
+            <span class="hud-label">EMCON</span>
+            <span class="hud-value">DELTA</span>
+          </div>
+        </div>
+
+        <div class="scenario-card__cta">
+          <button
+            type="button"
+            class="btn-tactical btn-tactical--primary w-full"
+            data-scenario="alpha"
+            style="width:100%;"
+          >
+            &gt; Load Scenario Alpha
+          </button>
+        </div>
+      </article>
+
+      <!-- SCENARIO BRAVO -->
+      <article class="scenario-card" aria-labelledby="scn-bravo-title">
+        <header class="scenario-card__head">
+          <div>
+            <h2 id="scn-bravo-title" class="scenario-card__codename">
+              SCENARIO BRAVO
+              <small>OP &middot; IRON HORIZON</small>
+            </h2>
+          </div>
+          <span class="diff-badge diff-badge--elevated">Elevated</span>
+        </header>
+
+        <p class="scenario-card__briefing">
+          Surface action group transits a contested chokepoint. Unidentified fast
+          movers inbound from the south. Hostile intent probable. Maintain track
+          discipline and prepare for threat engagement protocols.
+        </p>
+
+        <div class="scenario-card__meta">
+          <div class="scenario-card__meta-item">
+            <span class="hud-label">Duration</span>
+            <span class="hud-value">~ 15 MIN</span>
+          </div>
+          <div class="scenario-card__meta-item">
+            <span class="hud-label">Units</span>
+            <span class="hud-value">4 FRIENDLY</span>
+          </div>
+          <div class="scenario-card__meta-item">
+            <span class="hud-label">EMCON</span>
+            <span class="hud-value">CHARLIE</span>
+          </div>
+        </div>
+
+        <div class="scenario-card__cta">
+          <button
+            type="button"
+            class="btn-tactical btn-tactical--primary w-full"
+            data-scenario="bravo"
+            style="width:100%;"
+          >
+            &gt; Load Scenario Bravo
+          </button>
+        </div>
+      </article>
+
+    </section>
+
+    <footer class="menu-footer">
+      // All data fictional &middot; For portfolio use only //
+    </footer>
+
+  </main>
+
+  <script>
+    // Wire up scenario load buttons
+    document.querySelectorAll('button[data-scenario]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const scenario = btn.getAttribute('data-scenario');
+        window.location.href = 'simulator.html?scenario=' + encodeURIComponent(scenario);
+      });
+    });
+  </script>
+</body>
+</html>

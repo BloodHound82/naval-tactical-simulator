@@ -1,0 +1,128 @@
+{
+  "id": "alpha",
+  "name": "SCENARIO ALPHA — Unknown Contact",
+  "briefing": "CTG 1.2 is conducting routine patrol in Sector NOVEMBER. INTEL reports possible submerged contact transiting the area. Classify all tracks, maintain EMCON DELTA, report CPA of any SIERRA contact.",
+  "duration_minutes": 20,
+  "timeScale": 3,
+  "units": [
+    {
+      "id": "W-01",
+      "type": "surface",
+      "name": "FNS ADRIATICO",
+      "designation": "Whiskey-01",
+      "x": 300, "y": 300,
+      "course": 45,
+      "speed": 12,
+      "fuel": 85,
+      "status": "NOMINAL",
+      "sensors": { "radar": true, "sonar_passive": true, "sonar_active": false },
+      "weapons": ["MM40", "76mm OTO", "MILAS"]
+    },
+    {
+      "id": "W-02",
+      "type": "surface",
+      "name": "FNS TIRRENO",
+      "designation": "Whiskey-02",
+      "x": 380, "y": 260,
+      "course": 90,
+      "speed": 8,
+      "fuel": 92,
+      "status": "NOMINAL",
+      "sensors": { "radar": true, "sonar_passive": true, "sonar_active": false },
+      "weapons": ["MM40", "76mm OTO"]
+    },
+    {
+      "id": "A-01",
+      "type": "air",
+      "name": "HELO BRAVO 7",
+      "designation": "Alfa-01",
+      "x": 310, "y": 295,
+      "course": 180,
+      "speed": 90,
+      "fuel": 65,
+      "status": "NOMINAL",
+      "sensors": { "radar": true, "sonar_passive": false, "sonar_active": true },
+      "weapons": ["TORPEDO A244"]
+    }
+  ],
+  "initial_tracks": [
+    {
+      "id": "Track-1042",
+      "classification": "UNKNOWN",
+      "type": "surface",
+      "x": 450, "y": 250,
+      "course": 220,
+      "speed": 6,
+      "bearing": 45,
+      "range": 18
+    },
+    {
+      "id": "Track-1043",
+      "classification": "NEUTRAL",
+      "type": "surface",
+      "x": 200, "y": 350,
+      "course": 90,
+      "speed": 14,
+      "bearing": 210,
+      "range": 32
+    }
+  ],
+  "events": [
+    {
+      "at_second": 60,
+      "type": "comms_message",
+      "data": {
+        "from": "COMSTANAVFORMED",
+        "to": "CTG 1.2",
+        "precedence": "ROUTINE",
+        "text": "INTEL UPDATE: POSSIBLE SIERRA CONTACT REPORTED BY P-72 MARITIME PATROL. AREA NOVEMBER-DELTA. INCREASE PASSIVE SENSOR COVERAGE. REPORT POSIT HOURLY."
+      }
+    },
+    {
+      "at_second": 180,
+      "type": "track_spawn",
+      "data": {
+        "id": "Track-1044",
+        "classification": "UNKNOWN",
+        "type": "subsurface",
+        "x": 420, "y": 320,
+        "course": 270,
+        "speed": 4,
+        "bearing": 65,
+        "range": 24
+      }
+    },
+    {
+      "at_second": 300,
+      "type": "track_classify",
+      "data": { "trackId": "Track-1044", "classification": "HOSTILE" }
+    },
+    {
+      "at_second": 300,
+      "type": "comms_message",
+      "data": {
+        "from": "CTG 1.2 INTEL",
+        "to": "ALL UNITS",
+        "precedence": "FLASH",
+        "text": "FLASH — SIERRA CONTACT TRACK-1044 CLASSIFIED HOSTILE. CBDR WHISKEY-01. IMMEDIATE: EXECUTE EVASION PLAN NOVEMBER. ALL UNITS WEAPONS TIGHT PENDING FURTHER ORDERS."
+      }
+    },
+    {
+      "at_second": 600,
+      "type": "comms_message",
+      "data": {
+        "from": "COMSTANAVFORMED",
+        "to": "CTG 1.2",
+        "precedence": "IMMEDIATE",
+        "text": "IMMEDIATE — SITUATION ASSESSED. TRACK-1044 LOST CONTACT. RESUME PATROL. REPORT STATUS ALL UNITS."
+      }
+    }
+  ],
+  "victory_conditions": [
+    { "type": "time_survived", "seconds": 1200 },
+    { "type": "hostile_classified", "count": 1 }
+  ],
+  "defeat_conditions": [
+    { "type": "unit_destroyed", "unitId": "W-01" }
+  ]
+}

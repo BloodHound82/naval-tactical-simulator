@@ -1,0 +1,414 @@
+/* ==========================================================================
+   NAVAL TACTICAL SIMULATOR — MAIN STYLES
+   Design system root, primitives, utilities
+   ========================================================================== */
+
+:root {
+  /* Backgrounds */
+  --bg-primary:     #0a0e14;
+  --bg-secondary:   #0f1520;
+  --bg-panel:       #1a2332;
+  --bg-panel-hover: #2a3f5f;
+
+  /* Radar palette */
+  --radar-green:    #00ff41;
+  --radar-dim:      #003d0f;
+  --radar-sweep:    rgba(0, 255, 65, 0.15);
+
+  /* Classification colors */
+  --friendly:       #00aaff;
+  --unknown:        #ffaa00;
+  --hostile:        #ff4444;
+  --neutral:        #aaaaaa;
+
+  /* Text */
+  --text-primary:   #c8d8e8;
+  --text-secondary: #7a9ab8;
+  --text-data:      #00ff41;
+  --text-alert:     #ff4444;
+
+  /* Borders */
+  --border:         #2a3f5f;
+  --border-active:  #00aaff;
+
+  /* Typography */
+  --font-display:   'Orbitron', monospace;
+  --font-data:      'Share Tech Mono', monospace;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+}
+
+/* --------------------------------------------------------------------------
+   Reset
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-data);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+ul, ol { list-style: none; }
+
+a { color: var(--friendly); text-decoration: none; }
+
+img, canvas, svg { display: block; max-width: 100%; }
+
+/* --------------------------------------------------------------------------
+   HUD primitives
+   -------------------------------------------------------------------------- */
+.hud-panel {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: var(--space-4);
+  position: relative;
+}
+
+.hud-panel::before {
+  /* Corner accent */
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid var(--border-active);
+  border-left: 2px solid var(--border-active);
+  pointer-events: none;
+}
+
+.hud-panel__title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hud-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  display: inline-block;
+}
+
+.hud-value {
+  font-family: var(--font-data);
+  font-size: 15px;
+  color: var(--text-data);
+  letter-spacing: 0.04em;
+}
+
+.hud-value--lg {
+  font-size: 22px;
+}
+
+.hud-value--alert {
+  color: var(--text-alert);
+}
+
+/* --------------------------------------------------------------------------
+   Status badges (unit ops)
+   -------------------------------------------------------------------------- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  background-color: rgba(0,0,0,0.25);
+}
+
+.status-badge--nominal {
+  color: var(--radar-green);
+  background-color: rgba(0, 255, 65, 0.08);
+}
+
+.status-badge--degraded {
+  color: var(--unknown);
+  background-color: rgba(255, 170, 0, 0.08);
+}
+
+.status-badge--offline {
+  color: var(--neutral);
+  background-color: rgba(170,170,170,0.08);
+}
+
+/* --------------------------------------------------------------------------
+   Classification badges
+   -------------------------------------------------------------------------- */
+.classification-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 1px 6px;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+
+.classification-badge.friendly {
+  color: var(--friendly);
+  background-color: rgba(0, 170, 255, 0.10);
+}
+
+.classification-badge.unknown {
+  color: var(--unknown);
+  background-color: rgba(255, 170, 0, 0.10);
+}
+
+.classification-badge.hostile {
+  color: var(--hostile);
+  background-color: rgba(255, 68, 68, 0.10);
+  animation: radar-blink 1.6s ease-in-out infinite;
+}
+
+.classification-badge.neutral {
+  color: var(--neutral);
+  background-color: rgba(170, 170, 170, 0.10);
+}
+
+/* --------------------------------------------------------------------------
+   Animations
+   -------------------------------------------------------------------------- */
+@keyframes radar-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+@keyframes sweep-glow {
+  0%, 100% { box-shadow: 0 0 4px var(--radar-green), inset 0 0 4px var(--radar-green); }
+  50%      { box-shadow: 0 0 12px var(--radar-green), inset 0 0 8px var(--radar-green); }
+}
+
+@keyframes alert-flash {
+  0%, 100% { background-color: rgba(255, 68, 68, 0.12); }
+  50%      { background-color: rgba(255, 68, 68, 0.28); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fade-in-up 0.45s ease-out both;
+}
+
+/* --------------------------------------------------------------------------
+   Scrollbar (dark militare)
+   -------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 1px solid var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-panel-hover);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Tactical button
+   -------------------------------------------------------------------------- */
+.btn-tactical {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 8px 16px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border-radius: 0;
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-tactical:hover {
+  background-color: var(--bg-panel-hover);
+  border-color: var(--border-active);
+  color: var(--friendly);
+  box-shadow: 0 0 8px rgba(0, 170, 255, 0.35), inset 0 0 8px rgba(0, 170, 255, 0.10);
+}
+
+.btn-tactical:focus-visible {
+  outline: 2px solid var(--border-active);
+  outline-offset: 2px;
+}
+
+.btn-tactical:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-tactical--primary {
+  border-color: var(--radar-green);
+  color: var(--radar-green);
+}
+
+.btn-tactical--primary:hover {
+  background-color: rgba(0, 255, 65, 0.08);
+  color: var(--radar-green);
+  border-color: var(--radar-green);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.45), inset 0 0 8px rgba(0, 255, 65, 0.12);
+}
+
+.btn-tactical--danger {
+  border-color: var(--hostile);
+  color: var(--hostile);
+}
+
+.btn-tactical--danger:hover {
+  background-color: rgba(255, 68, 68, 0.08);
+  color: var(--hostile);
+  border-color: var(--hostile);
+  box-shadow: 0 0 10px rgba(255, 68, 68, 0.45);
+}
+
+.btn-tactical--active {
+  background-color: var(--bg-panel-hover);
+  border-color: var(--border-active);
+  color: var(--friendly);
+}
+
+/* --------------------------------------------------------------------------
+   Alert bar
+   -------------------------------------------------------------------------- */
+.alert-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px var(--space-4);
+  border: 1px solid var(--hostile);
+  background-color: rgba(255, 68, 68, 0.12);
+  color: var(--text-alert);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  animation: alert-flash 1.2s ease-in-out infinite;
+}
+
+.alert-bar::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background-color: var(--hostile);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--hostile);
+}
+
+/* --------------------------------------------------------------------------
+   Text utility colors
+   -------------------------------------------------------------------------- */
+.text-friendly { color: var(--friendly); }
+.text-hostile  { color: var(--hostile); }
+.text-unknown  { color: var(--unknown); }
+.text-neutral  { color: var(--neutral); }
+.text-data     { color: var(--text-data); }
+.text-secondary { color: var(--text-secondary); }
+.text-alert    { color: var(--text-alert); }
+
+.font-display  { font-family: var(--font-display); }
+.font-data     { font-family: var(--font-data); }
+
+/* --------------------------------------------------------------------------
+   Generic helpers
+   -------------------------------------------------------------------------- */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  border: 0;
+}
+
+.divider-h {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  margin: var(--space-3) 0;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.dot--pulse {
+  box-shadow: 0 0 0 0 currentColor;
+  animation: dot-pulse 1.6s ease-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  70%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
