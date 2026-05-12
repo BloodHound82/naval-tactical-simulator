@@ -153,6 +153,54 @@
     return color('unknown');
   }
 
+  /**
+   * NTDS domain symbol on the tactical map.
+   * Surface    → full diamond (stroke + fill)
+   * Air        → upper half diamond (inverted V, top triangle)
+   * Sub        → lower half diamond (V, bottom triangle)
+   * Friendly units use circle variants (same halving rule).
+   */
+  function drawDomainSymbol(ctx, x, y, size, type, filled) {
+    const t = (type || 'surface').toLowerCase();
+    ctx.beginPath();
+    if (t === 'air') {
+      ctx.moveTo(x, y - size);   // top vertex
+      ctx.lineTo(x + size, y);   // right midpoint
+      ctx.lineTo(x - size, y);   // left midpoint
+      ctx.closePath();
+    } else if (t === 'subsurface') {
+      ctx.moveTo(x - size, y);   // left midpoint
+      ctx.lineTo(x, y + size);   // bottom vertex
+      ctx.lineTo(x + size, y);   // right midpoint
+      ctx.closePath();
+    } else {
+      // Full diamond
+      ctx.moveTo(x, y - size);
+      ctx.lineTo(x + size, y);
+      ctx.lineTo(x, y + size);
+      ctx.lineTo(x - size, y);
+      ctx.closePath();
+    }
+    if (filled) ctx.fill();
+    ctx.stroke();
+  }
+
+  function drawUnitCircle(ctx, x, y, r, type) {
+    const t = (type || 'surface').toLowerCase();
+    ctx.beginPath();
+    if (t === 'air') {
+      ctx.arc(x, y, r, -Math.PI, 0);
+      ctx.closePath();
+    } else if (t === 'subsurface') {
+      ctx.arc(x, y, r, 0, Math.PI);
+      ctx.closePath();
+    } else {
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.stroke();
+  }
+
   function drawUnits(ctx) {
     const units = global.State.units;
     const selected = global.State.selectedUnit;
@@ -166,10 +214,7 @@
 
       ctx.strokeStyle = color('friendly');
       ctx.fillStyle = color('bg');
-      ctx.beginPath();
-      ctx.arc(u.x, u.y, 8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      drawUnitCircle(ctx, u.x, u.y, 8, u.type);
 
       if (selected === u.id) {
         ctx.strokeStyle = color('text');
@@ -201,14 +246,8 @@
       ctx.strokeStyle = c;
       ctx.lineWidth = 2;
 
-      // Diamond marker.
-      ctx.beginPath();
-      ctx.moveTo(t.x, t.y - 7);
-      ctx.lineTo(t.x + 7, t.y);
-      ctx.lineTo(t.x, t.y + 7);
-      ctx.lineTo(t.x - 7, t.y);
-      ctx.closePath();
-      ctx.stroke();
+      // NTDS domain symbol
+      drawDomainSymbol(ctx, t.x, t.y, 7, t.type, false);
 
       if (selected === t.id) {
         ctx.beginPath();

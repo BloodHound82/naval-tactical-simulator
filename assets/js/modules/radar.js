@@ -266,6 +266,30 @@
     return color('unknown');
   }
 
+  /**
+   * NTDS domain symbology for radar blips.
+   * Surface  → full circle
+   * Air      → upper semicircle (chord at centre line)
+   * Sub      → lower semicircle (chord at centre line)
+   */
+  function drawBlip(ctx, x, y, r, type) {
+    const t = (type || 'surface').toLowerCase();
+    ctx.beginPath();
+    if (t === 'air') {
+      // Upper half: clockwise arc from left (-π) to right (0) passes through top
+      ctx.arc(x, y, r, -Math.PI, 0);
+      ctx.closePath();
+    } else if (t === 'subsurface') {
+      // Lower half: clockwise arc from right (0) to left (π) passes through bottom
+      ctx.arc(x, y, r, 0, Math.PI);
+      ctx.closePath();
+    } else {
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.stroke();
+  }
+
   function drawTracks(ctx, cx, cy, pxPerNm) {
     const ownship = primaryOwnship();
     if (!ownship) return;
@@ -304,16 +328,18 @@
       }
       ctx.globalAlpha = fade;
 
-      // Main blip.
-      ctx.beginPath();
-      ctx.arc(x, y, selected === t.id ? 7 : 5, 0, Math.PI * 2);
-      ctx.fill();
+      // Main blip — NTDS domain symbology.
+      const blipR = selected === t.id ? 7 : 5;
+      ctx.fillStyle = classColor(t.classification);
+      ctx.strokeStyle = classColor(t.classification);
+      ctx.lineWidth = 1.5;
+      drawBlip(ctx, x, y, blipR, t.type);
 
       if (selected === t.id) {
         ctx.strokeStyle = color('text');
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(x, y, 10, 0, Math.PI * 2);
+        ctx.arc(x, y, blipR + 4, 0, Math.PI * 2);
         ctx.stroke();
       }
 
